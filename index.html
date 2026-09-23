@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Команда за $20</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>⚽ Команда за <span class="accent">$20</span></h1>
+  </header>
+
+  <!-- Экран старта -->
+  <main id="screen-setup" class="screen">
+    <div class="panel setup">
+      <p class="lead">Два игрока, по $20 у каждого. Из пула в 10 футболистов по очереди выставляется лот — торгуйтесь, пока кто-то не спасует.</p>
+      <p class="muted">Каждый собирает состав: 1 вратарь, 2 защитника, 1 полузащитник, 1 нападающий.</p>
+      <div class="names">
+        <label>Игрок 1<input id="name1" maxlength="16" value="Игрок 1"></label>
+        <label>Игрок 2<input id="name2" maxlength="16" value="Игрок 2"></label>
+      </div>
+      <div class="modes-title">Режим</div>
+      <div class="modes" id="modes"></div>
+      <button id="btn-play" class="btn primary big" disabled>Загрузка базы…</button>
+      <p id="load-error" class="error hidden"></p>
+    </div>
+  </main>
+
+  <!-- Экран игры -->
+  <main id="screen-game" class="screen hidden">
+    <section class="team" id="team-0"></section>
+
+    <section class="center">
+      <div class="lot-info" id="lot-info"></div>
+      <div class="card" id="card"></div>
+
+      <div class="bid-box" id="bid-box">
+        <div class="current-bid">
+          <span class="muted">Текущая ставка</span>
+          <strong id="current-bid">—</strong>
+          <span id="current-leader" class="muted"></span>
+        </div>
+        <div class="turn" id="turn"></div>
+        <div class="controls" id="controls">
+          <div class="stepper">
+            <button class="btn step" data-step="-1">−</button>
+            <span id="bid-amount">$1</span>
+            <button class="btn step" data-step="1">+</button>
+            <button class="btn step" data-step="5">+5</button>
+          </div>
+          <div class="actions">
+            <button id="btn-bid" class="btn primary">Поставить</button>
+            <button id="btn-pass" class="btn">Пас — отдать</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="result hidden" id="result">
+        <p id="result-text"></p>
+        <button id="btn-next" class="btn primary">Следующий лот →</button>
+      </div>
+
+      <ol class="log" id="log"></ol>
+    </section>
+
+    <section class="team" id="team-1"></section>
+  </main>
+
+  <!-- Финал -->
+  <main id="screen-end" class="screen hidden">
+    <div class="panel end">
+      <h2 id="end-title"></h2>
+      <div class="final-teams" id="final-teams"></div>
+      <button id="btn-again" class="btn primary big">Новая игра</button>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
