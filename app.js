@@ -41,12 +41,34 @@ function initials(name) {
   return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-// Круг с фото; если фото нет или не загрузилось — инициалы
-function avatar(p, cls = '') {
-  const ini = initials(p.name);
-  if (!p.photo) return `<span class="avatar ${cls}">${ini}</span>`;
-  return `<span class="avatar ${cls}"><img src="${escapeHtml(p.photo)}" alt="" loading="lazy"
-    onerror="this.parentNode.textContent='${ini}'"></span>`;
+// Цвет карточки по рейтингу, как в Ultimate Team
+function tier(rating) {
+  if (rating >= 87) return 'elite';
+  if (rating >= 75) return 'gold';
+  if (rating >= 65) return 'silver';
+  return 'bronze';
+}
+
+// Фамилия для карточки: всё, кроме имени («Вирджил ван Дейк» -> «ван Дейк»)
+function shortName(name) {
+  const parts = name.split(' ');
+  return parts.length > 1 ? parts.slice(1).join(' ') : name;
+}
+
+function futCard(p, size = '') {
+  const photo = p.photo
+    ? `<img src="${escapeHtml(p.photo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'fut-ini',textContent:'${initials(p.name)}'}))">`
+    : `<span class="fut-ini">${initials(p.name)}</span>`;
+  const short = shortName(p.name);
+  return `<div class="fut tier-${tier(p.rating)} ${size}">
+    <div class="fut-top">
+      <div class="fut-rating">${p.rating}</div>
+      <div class="fut-pos">${POS_SHORT[p.position]}</div>
+    </div>
+    <div class="fut-photo">${photo}</div>
+    <div class="fut-name${short.length > 12 ? ' long' : ''}">${escapeHtml(short)}</div>
+    <div class="fut-meta">${escapeHtml(p.club)}<br>${escapeHtml(p.country)}</div>
+  </div>`;
 }
 
 const other = (i) => 1 - i;
@@ -83,6 +105,8 @@ function newGame() {
   game = {
     teams: names.map((name) => ({ name, money: BUDGET, players: [] })),
     pool,
+    id: Math.random().toString(36).slice(2),
+    mode,
     lotNumber: 0,
     opener: Math.random() < 0.5 ? 0 : 1, // кто открывает торги в первом лоте
     lot: null,
@@ -183,16 +207,15 @@ function endGame() {
   $('final-teams').innerHTML = game.teams.map((t, i) => `
     <div class="final p${i}-border">
       <h3 class="p${i}">${escapeHtml(t.name)}</h3>
-      <p class="muted">Рейтинг состава: <strong>${scores[i]}</strong> · Осталось: <strong>$${t.money}</strong></p>
+      <div class="final-stats">
+        <div><span>Рейтинг</span><strong>${scores[i]}</strong></div>
+        <div><span>Осталось</span><strong>$${t.money}</strong></div>
+      </div>
       <div class="formation">
         ${['FWD', 'MID', 'DEF', 'GK'].map((pos) => `
           <div class="line">
             ${t.players.filter((p) => p.position === pos).map((p) => `
-              <div class="chip">
-                ${avatar(p)}
-                <span class="chip-name">${escapeHtml(p.name)}</span>
-                <span class="muted small">${p.rating} · $${p.price}</span>
-              </div>`).join('')}
+              <div class="chip">${futCard(p, 'mini')}<span class="chip-price">$${p.price}</span></div>`).join('')}
           </div>`).join('')}
       </div>
     </div>`).join('');
@@ -204,19 +227,21 @@ function endGame() {
 
 function show(id) {
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('hidden', s.id !== id);
+  // В меню кнопка «Выйти в меню» не нужна
+  $('btn-menu').classList.toggle('hidden', id === 'screen-setup');
 }
 
 function render() {
   const lot = game.lot;
   const p = lot.player;
 
-  $('lot-info').textContent = `Лот ${game.lotNumber} из ${game.pool.length}`;
-  $('card').innerHTML = `
-    <div class="pos pos-${p.position}">${POS_NAME[p.position]}</div>
-    ${avatar(p, 'big')}
-    <div class="name">${escapeHtml(p.name)}</div>
-    <div class="meta">${escapeHtml(p.club)} · ${escapeHtml(p.country)}</div>
-    <div class="rating">${p.rating}</div>`;
+  $('lot-info').textContent = `Лот ${game.lotNumber} из ${game.pool.length} · Режим ${game.mode.label}`;
+  // Карточку перерисовываем только при новом лоте, чтобы анимация не повторялась на каждой ставке
+  const lotKey = `${game.id}-${game.lotNumber}`;
+  if ($('card').dataset.lot !== lotKey) {
+    $('card').dataset.lot = lotKey;
+    $('card').innerHTML = futCard(p, 'big') + `<div class="card-full-name">${escapeHtml(p.name)} · ${POS_NAME[p.position]}</div>`;
+  }
 
   $('current-bid').textContent = lot.bid ? `$${lot.bid}` : '—';
   $('current-leader').innerHTML = lot.leader !== null
@@ -247,6 +272,7 @@ function renderTeam(team, i) {
       const pl = have[k];
       slots.push(pl
         ? `<li class="slot filled"><span class="tag pos-${pos}">${POS_SHORT[pos]}</span>
+             <span class="slot-rating tier-${tier(pl.rating)}">${pl.rating}</span>
              <span class="slot-name">${escapeHtml(pl.name)}</span><span class="price">$${pl.price}</span></li>`
         : `<li class="slot"><span class="tag pos-${pos}">${POS_SHORT[pos]}</span><span class="muted">пусто</span></li>`);
     }
@@ -254,7 +280,7 @@ function renderTeam(team, i) {
   $(`team-${i}`).className = `team p${i}-border${active ? ' active' : ''}`;
   $(`team-${i}`).innerHTML = `
     <h2 class="p${i}">${escapeHtml(team.name)}</h2>
-    <div class="money">$${team.money}</div>
+    <div class="money"><span>Бюджет</span>$${team.money}</div>
     <ul class="slots">${slots.join('')}</ul>`;
 }
 
@@ -270,6 +296,18 @@ for (const b of document.querySelectorAll('.step')) {
     render();
   });
 }
+
+$('theme-toggle').addEventListener('click', () => {
+  const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem('theme', theme); } catch (_) {}
+});
+
+$('btn-menu').addEventListener('click', () => {
+  const inGame = !$('screen-game').classList.contains('hidden');
+  if (inGame && !confirm('Выйти в меню? Текущая игра будет потеряна.')) return;
+  show('screen-setup');
+});
 
 $('btn-play').addEventListener('click', newGame);
 $('btn-bid').addEventListener('click', placeBid);
