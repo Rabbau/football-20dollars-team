@@ -1,10 +1,16 @@
 'use strict';
 
-const BUDGET = 20;
-// Сколько игроков каждой позиции попадает в пул (на двоих)
-const POOL_SIZE = { GK: 2, DEF: 4, MID: 2, FWD: 2 };
-// Состав каждой команды — ровно половина пула
-const SQUAD = { GK: 1, DEF: 2, MID: 1, FWD: 1 };
+// Форматы: бюджет и состав каждой команды. Пул — ровно два таких состава
+const FORMATS = [
+  { id: '5', title: '5 игроков', budget: 20, squad: { GK: 1, DEF: 2, MID: 1, FWD: 1 } },
+  { id: '7', title: '7 игроков', budget: 25, squad: { GK: 1, DEF: 2, MID: 2, FWD: 2 } },
+  {
+    id: '11', title: '11 игроков', budget: 35, schemes: [
+      { id: '4-4-2', squad: { GK: 1, DEF: 4, MID: 4, FWD: 2 } },
+      { id: '4-3-3', squad: { GK: 1, DEF: 4, MID: 3, FWD: 3 } },
+    ],
+  },
+];
 const POS_NAME = { GK: 'Вратарь', DEF: 'Защитник', MID: 'Полузащитник', FWD: 'Нападающий' };
 const POS_SHORT = { GK: 'ВРТ', DEF: 'ЗАЩ', MID: 'ПЗ', FWD: 'НАП' };
 const POS_ORDER = ['GK', 'DEF', 'MID', 'FWD'];
@@ -21,6 +27,8 @@ const $ = (id) => document.getElementById(id);
 let database = [];
 let game = null;
 let mode = MODES[1];
+let format = FORMATS[0];
+let scheme = FORMATS[2].schemes[0];
 
 // ---------- утилиты ----------
 
@@ -73,16 +81,34 @@ function futCard(p, size = '') {
 
 const other = (i) => 1 - i;
 
+// ---------- форматы и схемы ----------
+
+function currentSquad() {
+  return format.schemes ? scheme.squad : format.squad;
+}
+
+// «ВРТ · 2 ЗАЩ · ПЗ · НАП»
+function squadText(squad) {
+  return POS_ORDER.map((pos) => (squad[pos] > 1 ? `${squad[pos]} ` : '') + POS_SHORT[pos]).join(' · ');
+}
+
+// «2-1-1» — полевые линии без вратаря
+function squadLine(squad) {
+  return `${squad.DEF}-${squad.MID}-${squad.FWD}`;
+}
+
 // ---------- логика команды ----------
 
-const SQUAD_SIZE = POS_ORDER.reduce((s, p) => s + SQUAD[p], 0);
+function squadSize(squad) {
+  return POS_ORDER.reduce((s, p) => s + squad[p], 0);
+}
 
 function slotsLeft(team) {
-  return SQUAD_SIZE - team.players.length;
+  return squadSize(game.squad) - team.players.length;
 }
 
 function needs(team, pos) {
-  return team.players.filter((p) => p.position === pos).length < SQUAD[pos];
+  return team.players.filter((p) => p.position === pos).length < game.squad[pos];
 }
 
 // Максимальная ставка: нужно оставить хотя бы по $1 на каждое оставшееся место
@@ -95,18 +121,21 @@ function maxBid(team) {
 function newGame() {
   const names = [$('name1').value.trim() || 'Игрок 1', $('name2').value.trim() || 'Игрок 2'];
 
+  const squad = currentSquad();
   let pool = [];
   for (const pos of POS_ORDER) {
     const candidates = shuffle(database.filter((p) => p.position === pos && p.rating >= mode.min));
-    pool.push(...candidates.slice(0, POOL_SIZE[pos]));
+    pool.push(...candidates.slice(0, squad[pos] * 2));
   }
   pool = shuffle(pool).map((p, i) => ({ ...p, id: i, soldTo: null, price: null }));
 
   game = {
-    teams: names.map((name) => ({ name, money: BUDGET, players: [] })),
+    teams: names.map((name) => ({ name, money: format.budget, players: [] })),
     pool,
     id: Math.random().toString(36).slice(2),
     mode,
+    squad,
+    formatLabel: format.schemes ? scheme.id : format.title,
     lotNumber: 0,
     opener: Math.random() < 0.5 ? 0 : 1, // кто открывает торги в первом лоте
     lot: null,
@@ -211,7 +240,7 @@ function endGame() {
         <div><span>Рейтинг</span><strong>${scores[i]}</strong></div>
         <div><span>Осталось</span><strong>$${t.money}</strong></div>
       </div>
-      <div class="formation">
+      <div class="formation${squadSize(game.squad) > 7 ? ' wide' : ''}">
         ${['FWD', 'MID', 'DEF', 'GK'].map((pos) => `
           <div class="line">
             ${t.players.filter((p) => p.position === pos).map((p) => `
@@ -235,7 +264,7 @@ function render() {
   const lot = game.lot;
   const p = lot.player;
 
-  $('lot-info').textContent = `Лот ${game.lotNumber} из ${game.pool.length} · Режим ${game.mode.label}`;
+  $('lot-info').textContent = `Лот ${game.lotNumber} из ${game.pool.length} · ${game.formatLabel} · ${game.mode.label}`;
   // Карточку перерисовываем только при новом лоте, чтобы анимация не повторялась на каждой ставке
   const lotKey = `${game.id}-${game.lotNumber}`;
   if ($('card').dataset.lot !== lotKey) {
@@ -268,7 +297,7 @@ function renderTeam(team, i) {
   const slots = [];
   for (const pos of POS_ORDER) {
     const have = team.players.filter((p) => p.position === pos);
-    for (let k = 0; k < SQUAD[pos]; k++) {
+    for (let k = 0; k < game.squad[pos]; k++) {
       const pl = have[k];
       slots.push(pl
         ? `<li class="slot filled"><span class="tag pos-${pos}">${POS_SHORT[pos]}</span>
@@ -332,6 +361,43 @@ $('modes').addEventListener('click', (e) => {
   renderModes();
 });
 
+function renderFormats() {
+  $('formats').innerHTML = FORMATS.map((f, i) => {
+    const hint = f.schemes ? f.schemes.map((s) => s.id).join(' / ') : squadLine(f.squad);
+    return `<button class="mode${f === format ? ' selected' : ''}" data-i="${i}">
+      <strong>${f.id}</strong><span>игроков · $${f.budget}</span><span class="muted small">${hint}</span>
+    </button>`;
+  }).join('');
+
+  $('schemes-wrap').classList.toggle('hidden', !format.schemes);
+  if (format.schemes) {
+    $('schemes').innerHTML = format.schemes.map((s, i) => `
+      <button class="mode${s === scheme ? ' selected' : ''}" data-i="${i}">
+        <strong>${s.id}</strong><span class="muted small">${squadText(s.squad)}</span>
+      </button>`).join('');
+  }
+
+  const squad = currentSquad();
+  $('squad-desc').textContent =
+    `Бюджет: $${format.budget} у каждого. Состав: ${squadText(squad)}. В пуле ${squadSize(squad) * 2} футболистов.`;
+}
+
+$('formats').addEventListener('click', (e) => {
+  const b = e.target.closest('.mode');
+  if (!b) return;
+  format = FORMATS[Number(b.dataset.i)];
+  try { localStorage.setItem('format', format.id); } catch (_) {}
+  renderFormats();
+});
+
+$('schemes').addEventListener('click', (e) => {
+  const b = e.target.closest('.mode');
+  if (!b) return;
+  scheme = format.schemes[Number(b.dataset.i)];
+  try { localStorage.setItem('scheme', scheme.id); } catch (_) {}
+  renderFormats();
+});
+
 // ---------- загрузка базы ----------
 
 fetch('data/players.json')
@@ -341,15 +407,23 @@ fetch('data/players.json')
   })
   .then((data) => {
     database = data;
+    // В каждом режиме рейтинга должно хватать игроков на самый большой пул
+    const squads = FORMATS.flatMap((f) => (f.schemes ? f.schemes.map((s) => s.squad) : [f.squad]));
     for (const m of MODES) {
       for (const pos of POS_ORDER) {
-        if (data.filter((p) => p.position === pos && p.rating >= m.min).length < POOL_SIZE[pos]) {
+        const need = Math.max(...squads.map((sq) => sq[pos] * 2));
+        if (data.filter((p) => p.position === pos && p.rating >= m.min).length < need) {
           throw new Error(`в режиме ${m.label} мало игроков позиции ${pos}`);
         }
       }
     }
-    try { mode = MODES.find((m) => m.label === localStorage.getItem('mode')) || mode; } catch (_) {}
+    try {
+      mode = MODES.find((m) => m.label === localStorage.getItem('mode')) || mode;
+      format = FORMATS.find((f) => f.id === localStorage.getItem('format')) || format;
+      scheme = FORMATS[2].schemes.find((s) => s.id === localStorage.getItem('scheme')) || scheme;
+    } catch (_) {}
     renderModes();
+    renderFormats();
     $('btn-play').disabled = false;
     $('btn-play').textContent = 'Играть';
   })

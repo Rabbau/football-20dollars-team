@@ -191,7 +191,10 @@ body {
   letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
   text-align: left; margin-bottom: 6px;
 }
-.modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 26px; }
+.modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+.modes.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.modes.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.squad-desc { margin: 0 0 22px; font-size: 14px; }
 .mode {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 12px 4px; cursor: pointer;
@@ -433,6 +436,8 @@ body {
   border: 1px solid rgba(255, 255, 255, .12);
 }
 .line { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.formation.wide .line { gap: 6px; }
+.formation.wide .fut.mini { --w: 84px; }
 .chip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .chip-price {
   font-family: var(--display); font-weight: 800; font-size: 15px;
@@ -459,5 +464,7 @@ body {
   .final-teams { grid-template-columns: 1fr; }
   .names { flex-direction: column; }
   .modes { grid-template-columns: repeat(2, 1fr); }
+  .modes.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .formation.wide .fut.mini { --w: 70px; }
   .panel { padding: 20px; }
 }

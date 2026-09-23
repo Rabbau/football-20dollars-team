@@ -36,14 +36,20 @@
   <!-- Экран старта -->
   <main id="screen-setup" class="screen">
     <div class="panel setup">
-      <p class="lead">Два игрока, по $20 у каждого. Из пула в 10 футболистов по очереди выставляется лот — торгуйтесь, пока кто-то не спасует.</p>
-      <p class="muted">Каждый собирает состав: 1 вратарь, 2 защитника, 1 полузащитник, 1 нападающий.</p>
+      <p class="lead">Два игрока с одинаковым бюджетом. Из скрытого пула по очереди выставляются футболисты — торгуйтесь, пока кто-то не спасует.</p>
       <div class="names">
         <label>Игрок 1<input id="name1" maxlength="16" value="Игрок 1"></label>
         <label>Игрок 2<input id="name2" maxlength="16" value="Игрок 2"></label>
       </div>
-      <div class="modes-title">Режим</div>
+      <div class="modes-title">Формат</div>
+      <div class="modes cols-3" id="formats"></div>
+      <div id="schemes-wrap" class="hidden">
+        <div class="modes-title">Схема</div>
+        <div class="modes cols-2" id="schemes"></div>
+      </div>
+      <div class="modes-title">Рейтинг</div>
       <div class="modes" id="modes"></div>
+      <p class="muted squad-desc" id="squad-desc"></p>
       <button id="btn-play" class="btn primary big" disabled>Загрузка базы…</button>
       <p id="load-error" class="error hidden"></p>
     </div>
