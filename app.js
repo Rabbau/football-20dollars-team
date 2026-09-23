@@ -65,7 +65,7 @@ function shortName(name) {
 
 function futCard(p, size = '') {
   const photo = p.photo
-    ? `<img src="${escapeHtml(p.photo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'fut-ini',textContent:'${initials(p.name)}'}))">`
+    ? `<img src="${escapeHtml(p.photo)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'fut-ini',textContent:'${initials(p.name)}'}))">`
     : `<span class="fut-ini">${initials(p.name)}</span>`;
   const short = shortName(p.name);
   return `<div class="fut tier-${tier(p.rating)} ${size}">
@@ -128,6 +128,11 @@ function newGame() {
     pool.push(...candidates.slice(0, squad[pos] * 2));
   }
   pool = shuffle(pool).map((p, i) => ({ ...p, id: i, soldTo: null, price: null }));
+
+  // Заранее грузим фото всего пула, чтобы на карточке лота оно появлялось сразу
+  for (const p of pool) {
+    if (p.photo) new Image().src = p.photo;
+  }
 
   game = {
     teams: names.map((name) => ({ name, money: format.budget, players: [] })),
@@ -400,7 +405,7 @@ $('schemes').addEventListener('click', (e) => {
 
 // ---------- загрузка базы ----------
 
-fetch('data/players.json')
+fetch('data/players.json?v=2')
   .then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
