@@ -118,6 +118,17 @@ function maxBid(team) {
 
 // ---------- ход игры ----------
 
+function playerKey(p) {
+  return p.en || p.name;
+}
+
+// Случайный новый футболист той же позиции и режима, которого ещё не было в пуле
+function findReplacement(player) {
+  const candidates = database.filter((c) =>
+    c.position === player.position && c.rating >= game.mode.min && !game.seen.has(playerKey(c)));
+  return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+}
+
 function newGame() {
   const names = [$('name1').value.trim() || 'Игрок 1', $('name2').value.trim() || 'Игрок 2'];
 
@@ -137,6 +148,8 @@ function newGame() {
   game = {
     teams: names.map((name) => ({ name, money: format.budget, players: [] })),
     pool,
+    // Все, кто уже побывал в пуле (включая скипнутых) — замена не должна их повторять
+    seen: new Set(pool.map(playerKey)),
     id: Math.random().toString(36).slice(2),
     mode,
     squad,
@@ -158,7 +171,8 @@ function nextLot() {
   game.lotNumber++;
   const opener = game.lotNumber === 1 ? game.opener : other(game.lot.opener);
 
-  game.lot = { player, opener, bid: 0, leader: null, turn: opener, amount: 1, log: [] };
+  // phase: 'bid' — обычные торги, 'skip' — открывающий скипнул, решает соперник
+  game.lot = { player, opener, phase: 'bid', bid: 0, leader: null, turn: opener, amount: 1, log: [] };
 
   $('result').classList.add('hidden');
   $('bid-box').classList.remove('hidden');
@@ -203,6 +217,48 @@ function pass() {
   if (lot.leader === null) return; // открывающий обязан поставить
   lot.log.push(`${game.teams[lot.turn].name} пасует`);
   sell(lot.leader, lot.bid);
+}
+
+// Открывающий отказывается от футболиста до первой ставки
+function skip() {
+  const lot = game.lot;
+  if (lot.phase !== 'bid' || lot.leader !== null) return;
+  lot.log.push(`${game.teams[lot.turn].name} скипает`);
+  lot.phase = 'skip';
+  lot.turn = other(lot.turn);
+  render();
+}
+
+// Соперник после скипа забирает футболиста за $1
+function takeSkipped() {
+  const lot = game.lot;
+  if (lot.phase !== 'skip') return;
+  lot.log.push(`${game.teams[lot.turn].name} забирает за $1`);
+  sell(lot.turn, 1);
+}
+
+// Оба отказались: футболист уходит из пула, вместо него тайно добавляется новый
+function skipBoth() {
+  const lot = game.lot;
+  if (lot.phase !== 'skip') return;
+  const repl = findReplacement(lot.player);
+  if (!repl) return;
+  lot.log.push(`${game.teams[lot.turn].name} тоже скипает`);
+
+  game.seen.add(playerKey(repl));
+  game.pool = game.pool.filter((p) => p !== lot.player);
+  game.pool.push({ ...repl, id: game.pool.length + game.lotNumber, soldTo: null, price: null });
+  if (repl.photo) new Image().src = repl.photo;
+  lot.turn = null;
+
+  $('bid-box').classList.add('hidden');
+  $('result').classList.remove('hidden');
+  $('result-text').innerHTML =
+    `<strong>${escapeHtml(lot.player.name)}</strong> никому не нужен и уходит из пула. ` +
+    'Вместо него в пул добавлен другой футболист той же позиции.';
+  $('btn-next').textContent = 'Следующий лот →';
+
+  render();
 }
 
 function sell(teamIndex, price, auto = false) {
@@ -269,7 +325,9 @@ function render() {
   const lot = game.lot;
   const p = lot.player;
 
-  $('lot-info').textContent = `Лот ${game.lotNumber} из ${game.pool.length} · ${game.formatLabel} · ${game.mode.label}`;
+  // Из-за скипов номер лота может обогнать размер пула, поэтому показываем остаток
+  const left = game.pool.filter((pl) => pl.soldTo === null).length;
+  $('lot-info').textContent = `Лот ${game.lotNumber} · в пуле ещё ${left} · ${game.formatLabel} · ${game.mode.label}`;
   // Карточку перерисовываем только при новом лоте, чтобы анимация не повторялась на каждой ставке
   const lotKey = `${game.id}-${game.lotNumber}`;
   if ($('card').dataset.lot !== lotKey) {
@@ -281,7 +339,20 @@ function render() {
   $('current-leader').innerHTML = lot.leader !== null
     ? `у <span class="p${lot.leader}">${escapeHtml(game.teams[lot.leader].name)}</span>` : '';
 
-  if (lot.turn !== null) {
+  const inSkip = lot.phase === 'skip';
+  $('controls').classList.toggle('hidden', inSkip);
+  $('skip-controls').classList.toggle('hidden', !inSkip);
+
+  if (lot.turn !== null && inSkip) {
+    const canSkip = findReplacement(p) !== null;
+    $('turn').innerHTML = `<span class="p${other(lot.turn)}">${escapeHtml(game.teams[other(lot.turn)].name)}</span> скипнул. ` +
+      `Решает <span class="p${lot.turn}">${escapeHtml(game.teams[lot.turn].name)}</span>`;
+    $('skip-note').textContent = canSkip
+      ? 'Забрать футболиста за $1 или тоже отказаться — тогда он уйдёт из пула, а вместо него появится другой.'
+      : 'Замены этой позиции в базе больше нет — футболиста придётся забрать.';
+    $('btn-take').className = `btn primary bg${lot.turn}`;
+    $('btn-skip2').disabled = !canSkip;
+  } else if (lot.turn !== null) {
     const team = game.teams[lot.turn];
     $('turn').innerHTML = `Ход: <span class="p${lot.turn}">${escapeHtml(team.name)}</span>` +
       ` <span class="muted">(макс. ставка $${maxBid(team)})</span>`;
@@ -290,6 +361,8 @@ function render() {
     $('btn-bid').className = `btn primary bg${lot.turn}`;
     $('btn-pass').classList.toggle('hidden', lot.leader === null);
     $('btn-pass').textContent = lot.leader === null ? '' : `Пас — отдать за $${lot.bid}`;
+    // Скипнуть можно только вместо открытия торгов
+    $('btn-skip').classList.toggle('hidden', lot.leader !== null);
   }
 
   $('log').innerHTML = lot.log.map((l) => `<li>${escapeHtml(l)}</li>`).join('');
@@ -346,6 +419,9 @@ $('btn-menu').addEventListener('click', () => {
 $('btn-play').addEventListener('click', newGame);
 $('btn-bid').addEventListener('click', placeBid);
 $('btn-pass').addEventListener('click', pass);
+$('btn-skip').addEventListener('click', skip);
+$('btn-take').addEventListener('click', takeSkipped);
+$('btn-skip2').addEventListener('click', skipBoth);
 $('btn-next').addEventListener('click', nextLot);
 $('btn-again').addEventListener('click', () => show('screen-setup'));
 
@@ -405,7 +481,7 @@ $('schemes').addEventListener('click', (e) => {
 
 // ---------- загрузка базы ----------
 
-fetch('data/players.json?v=2')
+fetch('data/players.json?v=3')
   .then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();

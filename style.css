@@ -396,6 +396,8 @@ body {
 .actions { display: flex; gap: 8px; }
 .actions .btn { flex: 1; white-space: nowrap; }
 .result p { margin: 0 0 16px; font-size: 17px; line-height: 1.5; }
+.skip-note { margin: 0 0 14px; font-size: 14px; line-height: 1.45; }
+#btn-skip { flex: 0 0 auto; padding-left: 26px; padding-right: 26px; }
 
 .log {
   width: 100%; max-width: 440px; margin: 0; padding: 0 0 0 20px;

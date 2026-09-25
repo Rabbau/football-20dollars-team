@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <script>
     // Тема ставится до отрисовки, чтобы не было вспышки
     (function () {
@@ -80,6 +80,14 @@
           <div class="actions">
             <button id="btn-bid" class="btn primary">Поставить</button>
             <button id="btn-pass" class="btn">Пас — отдать</button>
+            <button id="btn-skip" class="btn">Скип</button>
+          </div>
+        </div>
+        <div class="controls hidden" id="skip-controls">
+          <p class="skip-note muted" id="skip-note"></p>
+          <div class="actions">
+            <button id="btn-take" class="btn primary">Забрать за $1</button>
+            <button id="btn-skip2" class="btn">Тоже скип</button>
           </div>
         </div>
       </div>
@@ -104,6 +112,6 @@
     </div>
   </main>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
